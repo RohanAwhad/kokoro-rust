@@ -71,25 +71,42 @@ pub fn phonemize(text: &str, lang: Lang, normalize: bool) -> Result<String> {
     set_espeak_voice(lang)?;
 
     let c_text = CString::new(text.as_str()).map_err(|e| KokoroError::Espeak(e.to_string()))?;
-    let text_ptr: *const c_void = c_text.as_ptr() as *const _;
-    let text_ptrs = [text_ptr, std::ptr::null()];
+    let mut text_ptr: *const c_void = c_text.as_ptr() as *const _;
 
-    let phonemes_ptr = unsafe {
-        espeak_TextToPhonemes(
-            text_ptrs.as_ptr() as *const *const c_void,
-            1,    // espeakCHARS_UTF8
-            0x02, // espeakPHONEMES_IPA
-        )
-    };
+    let mut utterances = Vec::new();
+    loop {
+        let phonemes_ptr = unsafe {
+            espeak_TextToPhonemes(
+                &mut text_ptr as *mut *const c_void,
+                1,     // espeakCHARS_UTF8
+                0x02,  // espeakPHONEMES_IPA
+            )
+        };
 
-    if phonemes_ptr.is_null() {
+        if phonemes_ptr.is_null() {
+            break;
+        }
+
+        let ps = unsafe { CStr::from_ptr(phonemes_ptr) }
+            .to_string_lossy()
+            .to_string();
+
+        if ps.is_empty() {
+            break;
+        }
+
+        utterances.push(ps);
+
+        if text_ptr.is_null() {
+            break;
+        }
+    }
+
+    if utterances.is_empty() {
         return Ok(String::new());
     }
 
-    let ps = unsafe { CStr::from_ptr(phonemes_ptr) }
-        .to_string_lossy()
-        .to_string();
-
+    let ps = utterances.join(" ");
     Ok(postprocess_phonemes(&ps, lang))
 }
 
