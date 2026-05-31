@@ -1,3 +1,9 @@
+#!/usr/bin/env -S uv run --script
+#
+# /// script
+# requires-python = ">=3.9"
+# dependencies = ["torch>=2.0", "numpy"]
+# ///
 """Convert PyTorch .pt voice files to .kokoro format for kokoro-rust."""
 import sys
 import json

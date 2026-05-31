@@ -78,7 +78,7 @@ impl VoicePack {
         let shape = &self.style_shape;
 
         if shape.len() == 3 {
-            let rows = shape[0];
+            let _rows = shape[0];
             let _batch = shape[1];
             let dims = shape[2];
             let stride = dims;
