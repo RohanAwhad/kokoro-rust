@@ -70,7 +70,26 @@ pub fn phonemize(text: &str, lang: Lang, normalize: bool) -> Result<String> {
     ensure_espeak_init();
     set_espeak_voice(lang)?;
 
-    let c_text = CString::new(text.as_str()).map_err(|e| KokoroError::Espeak(e.to_string()))?;
+    let (chunks, marks) = strip_punctuation(&text);
+    if chunks.is_empty() {
+        return Ok(String::new());
+    }
+
+    let mut phoneme_chunks = Vec::with_capacity(chunks.len());
+    for chunk in &chunks {
+        if chunk.is_empty() {
+            phoneme_chunks.push(String::new());
+            continue;
+        }
+        let ps = raw_phonemize(chunk)?;
+        phoneme_chunks.push(postprocess_phonemes(&ps, lang));
+    }
+
+    Ok(restore_punctuation(&phoneme_chunks, &marks))
+}
+
+fn raw_phonemize(text: &str) -> Result<String> {
+    let c_text = CString::new(text).map_err(|e| KokoroError::Espeak(e.to_string()))?;
     let mut text_ptr: *const c_void = c_text.as_ptr() as *const _;
 
     let mut utterances = Vec::new();
@@ -78,8 +97,8 @@ pub fn phonemize(text: &str, lang: Lang, normalize: bool) -> Result<String> {
         let phonemes_ptr = unsafe {
             espeak_TextToPhonemes(
                 &mut text_ptr as *mut *const c_void,
-                1,     // espeakCHARS_UTF8
-                0x02,  // espeakPHONEMES_IPA
+                1,    // espeakCHARS_UTF8
+                0x02, // espeakPHONEMES_IPA
             )
         };
 
@@ -102,12 +121,55 @@ pub fn phonemize(text: &str, lang: Lang, normalize: bool) -> Result<String> {
         }
     }
 
-    if utterances.is_empty() {
-        return Ok(String::new());
+    Ok(utterances.join(" "))
+}
+
+const PUNCTUATION_MARKS: &str = ";:,.!?¡¿—…\"«»";
+
+fn strip_punctuation(text: &str) -> (Vec<String>, Vec<String>) {
+    let mut chunks = Vec::new();
+    let mut marks = Vec::new();
+
+    let mut current = String::new();
+    for ch in text.chars() {
+        if PUNCTUATION_MARKS.contains(ch) {
+            if !current.is_empty() {
+                chunks.push(current.clone());
+                current.clear();
+            }
+            marks.push(ch.to_string());
+        } else {
+            current.push(ch);
+        }
+    }
+    if !current.is_empty() {
+        chunks.push(current);
     }
 
-    let ps = utterances.join(" ");
-    Ok(postprocess_phonemes(&ps, lang))
+    (chunks, marks)
+}
+
+fn restore_punctuation(chunks: &[String], marks: &[String]) -> String {
+    if chunks.is_empty() {
+        return marks.join(" ");
+    }
+
+    let mut result = String::new();
+    for (i, chunk) in chunks.iter().enumerate() {
+        if i > 0 && !chunk.is_empty() {
+            result.push(' ');
+        }
+        result.push_str(chunk);
+        if i < marks.len() {
+            result.push_str(&marks[i]);
+        }
+    }
+
+    if !result.ends_with(' ') && !result.is_empty() {
+        result.push(' ');
+    }
+
+    result
 }
 
 fn postprocess_phonemes(ps: &str, lang: Lang) -> String {
