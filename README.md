@@ -4,13 +4,16 @@ Rust port of [kokoro-tts](https://github.com/RohanAwhad/kokoro-tts) — a fast w
 
 > ~1.7s to generate ~1.7s of audio (ONNX Runtime on M1 Mac)
 
+## Prerequisites
+
+- `cargo` (Rust toolchain)
+- `espeak-ng` (phonemization via FFI)
+- `uv` (voice pack conversion script)
+- `curl` (model/voice download)
+
 ## Install
 
 ```bash
-# Prerequisites
-brew install espeak-ng
-
-# Clone
 git clone https://github.com/RohanAwhad/kokoro-rust.git
 cd kokoro-rust
 ```
