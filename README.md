@@ -2,7 +2,7 @@
 
 Rust port of [kokoro-tts](https://github.com/RohanAwhad/kokoro-tts) — a fast wrapper around the Kokoro-82M ONNX text-to-speech model.
 
-> ~1.7s to generate ~1.7s of audio (ONNX Runtime on M1 Mac)
+> ~1.7s to generate ~9.0s of audio (ONNX Runtime on M1 Mac)
 
 ## Prerequisites
 
