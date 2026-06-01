@@ -1,0 +1,32 @@
+---
+title: Kokoro TTS — Container Diagram
+---
+graph TD
+    subgraph KOKORO["kokoro-rust Workspace"]
+        CLI[kokoro-tts<br/><i>Rust binary</i><br/>CLI entrypoint: clap arg parsing, streaming playback via rodio, WAV output via hound]
+        LIB[kokoro<br/><i>Rust library</i><br/>Text normalization, phonemization, tokenization, ONNX inference, voice loading]
+        E2E[e2e<br/><i>Rust binary - debug</i><br/>Debug tool: prints normalize, phonemes, tokens, audio checksum]
+    end
+
+    subgraph EXT["External Systems"]
+        HF[HuggingFace<br/><i>hexgrad/Kokoro-82M</i>]
+        GH[GitHub Releases<br/><i>kokoro-rust releases</i>]
+    end
+
+    subgraph LOCAL["Local Machine"]
+        USER([User])
+        CACHE[(Cache Dir<br/><i>kokoro-tts/</i>)]
+        ESPEAK[(espeak-ng<br/><i>System library</i>)]
+    end
+
+    USER -->|"text arg or stdin"| CLI
+    USER -->|"debug run"| E2E
+    CLI -->|"text, Voice"| LIB
+    E2E -->|"text, Voice"| LIB
+    LIB -->|"downloads"| HF
+    LIB -->|"downloads"| GH
+    LIB -->|"read/write"| CACHE
+    LIB -->|"FFI"| ESPEAK
+    CLI -->|"writes .wav"| USER
+    CLI -->|"plays audio"| USER
+    E2E -->|"prints debug info"| USER

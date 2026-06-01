@@ -1,0 +1,51 @@
+---
+title: TTS Generation — Sequence Diagram
+---
+sequenceDiagram
+    participant User
+    participant Kokoro
+    participant normalize
+    participant phonemes
+    participant espeak as espeak-ng (FFI)
+    participant vocab
+    participant model as KokoroModel (ort)
+    participant voice as VoicePack
+
+    User->>Kokoro: generate("Hello world!", Voice::AfSky)
+    Kokoro->>Kokoro: sentence_tokenize → ["Hello world."]
+    Kokoro->>Kokoro: chunk_sentences → ["Hello world."]
+
+    Kokoro->>Kokoro: ensure_voice_loaded(AfSky)
+    alt voice not cached
+        Kokoro->>voice: download .pt from HuggingFace
+        Note over Kokoro,voice: Downloads .pt, but VoicePack::load expects .kokoro — user must pre-convert
+    end
+    Kokoro->>voice: load .kokoro → VoicePack
+    Kokoro->>Kokoro: ensure_model_loaded()
+    alt model not cached
+        Kokoro->>Kokoro: download kokoro-v0_19.onnx from HuggingFace
+    end
+    Kokoro->>model: KokoroModel::load(path) → ort Session
+
+    loop for each chunk
+        Kokoro->>normalize: normalize_text(chunk)
+        normalize-->>Kokoro: normalized text
+        Kokoro->>phonemes: phonemize(normalized, Lang::Am, true)
+        phonemes->>espeak: espeak_Initialize (once)
+        phonemes->>espeak: espeak_SetVoiceByName("en-us")
+        loop until null
+            phonemes->>espeak: espeak_TextToPhonemes(UTF8, IPA)
+            espeak-->>phonemes: IPA string
+        end
+        phonemes->>phonemes: postprocess (replacements, filtering)
+        phonemes-->>Kokoro: IPA phonemes string
+        Kokoro->>vocab: tokenize(phonemes)
+        vocab-->>Kokoro: Vec of token IDs
+        Kokoro->>Kokoro: pad tokens with [0, ...tokens..., 0]
+        Kokoro->>model: run(tokens, style, speed=1.0)
+        model->>model: ort Session::run("tokens", "style", "speed")
+        model-->>Kokoro: f32 audio Vec
+    end
+
+    Kokoro->>Kokoro: combine all audio chunks
+    Kokoro-->>User: AudioSamples { sample_rate: 24000, data: Vec<f32> }

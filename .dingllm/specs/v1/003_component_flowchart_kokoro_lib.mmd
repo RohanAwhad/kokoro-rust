@@ -1,0 +1,35 @@
+---
+title: Kokoro Library — Component Diagram
+---
+graph TD
+    subgraph LIB["kokoro (lib)"]
+        KOKORO_S[Kokoro<br/><i>struct, Mutex guard</i><br/>Public API: lazy-loads model and voice, chunks text, orchestrates pipeline]
+        NORMALIZE[normalize<br/><i>25 regex rules</i><br/>Text preprocessing: number splitting, abbreviation expansion]
+        PHONEMES[phonemes<br/><i>espeak-ng FFI</i><br/>Text-to-IPA phonemes via C FFI, post-processing rules]
+        VOCAB[vocab<br/><i>char-to-token LUT</i><br/>Maps IPA characters to token IDs]
+        MODEL[model<br/><i>ort Session</i><br/>ONNX inference: tokens, style, speed → f32 audio]
+        VOICE[voice<br/><i>VoicePack</i><br/>Loads .kokoro format, extracts style tensor]
+        CACHE[cache<br/><i>dirs + ureq</i><br/>Cache dir resolution, HTTP downloads]
+        TYPES[types<br/><i>consts + enums</i><br/>Voice, Lang, AudioSamples, constants]
+        ERROR[error<br/><i>thiserror enum</i><br/>KokoroError, Result alias]
+    end
+
+    subgraph EXT["External"]
+        ESPEAK[(espeak-ng<br/><i>System library</i>)]
+        ONNX[(ONNX Runtime<br/><i>ort crate</i>)]
+    end
+
+    KOKORO_S -->|"normalize text"| NORMALIZE
+    KOKORO_S -->|"phonemize"| PHONEMES
+    KOKORO_S -->|"tokenize"| VOCAB
+    KOKORO_S -->|"run inference"| MODEL
+    KOKORO_S -->|"load voice"| VOICE
+    KOKORO_S -->|"download files"| CACHE
+    KOKORO_S -.->|"uses types"| TYPES
+    KOKORO_S -.->|"uses errors"| ERROR
+    PHONEMES -->|"calls normalize"| NORMALIZE
+    PHONEMES -->|"FFI"| ESPEAK
+    PHONEMES -.->|"uses vocab LUT for filtering"| VOCAB
+    MODEL -->|"ort Session::run"| ONNX
+    CACHE -.->|"uses dirs crate"| TYPES
+    VOICE -->|"downloads via"| CACHE

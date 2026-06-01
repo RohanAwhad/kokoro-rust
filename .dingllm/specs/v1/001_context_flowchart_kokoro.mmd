@@ -1,0 +1,25 @@
+---
+title: Kokoro TTS — System Context
+---
+graph TD
+    subgraph KOKORO["kokoro-rust<br/><i>Rust workspace</i><br/>Text-to-speech via Kokoro-82M ONNX model"]
+    end
+
+    subgraph EXT["External Systems"]
+        HF[HuggingFace<br/><i>hexgrad/Kokoro-82M</i><br/>Hosts ONNX model + raw .pt voices]
+        GH[GitHub Releases<br/><i>kokoro-rust releases</i><br/>Hosts pre-converted .kokoro voices]
+    end
+
+    subgraph LOCAL["Local Machine"]
+        USER([User])
+        CACHE[(Cache Dir<br/><i>~/Library/Caches/kokoro-tts/</i><br/>ONNX model + voice packs)]
+        ESPEAK[(espeak-ng<br/><i>System library, >=1.50</i><br/>Phonemizes text to IPA)]
+    end
+
+    USER -->|"text"| KOKORO
+    KOKORO -->|"PCM audio (24kHz f32)"| USER
+    KOKORO -->|"downloads model .onnx"| HF
+    KOKORO -->|"downloads voice .pt/.kokoro"| HF
+    KOKORO -->|"downloads voice .kokoro"| GH
+    KOKORO -->|"read/write"| CACHE
+    KOKORO -->|"FFI call"| ESPEAK
